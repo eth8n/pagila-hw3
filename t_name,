@@ -1,4 +1,4 @@
-customer_id |       name        | total_payment | percentile 
+ customer_id |       name        | total_payment | percentile 
 -------------+-------------------+---------------+------------
          439 | ALEXANDER FENNELL |        151.64 |         93
          454 | ALEX GRESHAM      |        151.67 |         94
