@@ -10,41 +10,33 @@
  * My solution uses the `rank` window function.
  */
 
-WITH actor_film_revenue AS (
-  SELECT 
-    a.actor_id,
-    a.first_name,
-    a.last_name,
-    f.film_id,
-    f.title,
-    SUM(p.amount) AS revenue
-  FROM actor a
-  JOIN film_actor fa ON a.actor_id = fa.actor_id
-  JOIN film f ON fa.film_id = f.film_id
-  JOIN inventory i ON f.film_id = i.film_id
-  JOIN rental r ON i.inventory_id = r.inventory_id
-  JOIN payment p ON r.rental_id = p.rental_id
-  GROUP BY a.actor_id, a.first_name, a.last_name, f.film_id, f.title
-),
-ranked_films AS (
-  SELECT 
-    actor_id,
-    first_name,
-    last_name,
-    film_id,
-    title,
-    revenue,
-    rank() OVER (PARTITION BY actor_id ORDER BY revenue DESC) AS rank
-  FROM actor_film_revenue
-)
-SELECT 
-  actor_id,
-  first_name,
-  last_name,
-  film_id,
-  title,
-  rank,
-  revenue
-FROM ranked_films
-WHERE rank <= 3
-ORDER BY actor_id, rank;
+SELECT a.actor_id, a.first_name, a.last_name,
+       f.film_id, f.title, ranked_films.rank, film_revenue.revenue
+FROM actor a
+JOIN film_actor fa USING (actor_id)
+JOIN film f USING (film_id)
+JOIN (
+    	SELECT f.film_id, sum(p.amount) as revenue
+        FROM film f
+        JOIN inventory i on f.film_id = i.film_id
+        JOIN rental r on i.inventory_id = r.inventory_id
+        JOIN payment p on r.rental_id = p.rental_id
+        GROUP BY f.film_id
+) film_revenue USING (film_id)
+JOIN (
+    SELECT actor_id, film_id,
+           RANK() OVER (
+            PARTITION BY actor_id ORDER BY COALESCE(revenue, 0.00) DESC, film_id ASC
+           ) AS rank
+    FROM film_actor
+    JOIN (
+        SELECT f.film_id, sum(p.amount) as revenue
+        FROM film f
+        JOIN inventory i on f.film_id = i.film_id
+        JOIN rental r on i.inventory_id = r.inventory_id
+        JOIN payment p on r.rental_id = p.rental_id
+        GROUP BY f.film_id
+    ) film_revenue USING (film_id)
+) ranked_films USING (actor_id, film_id)
+WHERE ranked_films.rank <= 3
+ORDER BY a.actor_id, ranked_films.rank;
